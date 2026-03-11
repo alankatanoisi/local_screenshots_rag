@@ -258,3 +258,16 @@ If the app says it cannot find the CLI:
 Archived public README editions live in [`readme-history/`](readme-history/).
 
 - [README v1 - 2026-03-11](readme-history/README-v1-2026-03-11.md)
+
+## Project Files
+
+If you are navigating the project docs, these are the main Markdown files:
+
+- [`README.md`](README.md): current public landing page
+- [`readme-history/`](readme-history/): archived public README editions
+- [`QUICK_START.md`](QUICK_START.md): shortest setup path
+- [`USER_GUIDE.md`](USER_GUIDE.md): longer user-facing guide
+- [`COMMANDS.md`](COMMANDS.md): command reference
+- [`PROJECT_NOTES.md`](PROJECT_NOTES.md): internal project context for future work
+- [`ROADMAP.md`](ROADMAP.md): current priorities and likely next steps
+- [`DECISIONS.md`](DECISIONS.md): major project decisions and why they were made
