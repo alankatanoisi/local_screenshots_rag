@@ -2,6 +2,9 @@
 .env
 .pytest_cache/
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
 .DS_Store
 .build/
 DerivedData/
@@ -9,4 +12,7 @@ dist/
 build/
 .swiftpm/
 *.egg-info/
+.coverage
+.mypy_cache/
+.ruff_cache/
 README 2.txt
