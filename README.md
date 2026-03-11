@@ -271,3 +271,5 @@ If you are navigating the project docs, these are the main Markdown files:
 - [`PROJECT_NOTES.md`](PROJECT_NOTES.md): internal project context for future work
 - [`ROADMAP.md`](ROADMAP.md): current priorities and likely next steps
 - [`DECISIONS.md`](DECISIONS.md): major project decisions and why they were made
+- [`THREAD_SUMMARY_PROMPT.md`](THREAD_SUMMARY_PROMPT.md): reusable prompt for summarizing other Codex threads
+- [`worklog/`](worklog/): dated work session logs
