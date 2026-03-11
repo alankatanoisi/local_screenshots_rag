@@ -2,7 +2,11 @@
 
 ScreenMemory RAG is a local-first screenshot search tool for macOS.
 
-It does three main jobs:
+The name is still a working title.
+
+The goal is simple: make your own screenshot history actually searchable without turning the whole workflow into a cloud product first.
+
+At the moment, the project does four main jobs:
 
 1. It reads screenshots from a configurable screenshot folder.
 2. It extracts text with OCR and stores search data in its own local database.
@@ -11,10 +15,16 @@ It does three main jobs:
    - `Semantic` mode, which uses Gemini for embeddings, time-filter parsing, and optional answer synthesis
 4. In the menu bar app, Gemini answers can include numeric footnotes like `[1]` that map back to the retrieved screenshots they reference.
 
-Important safety rule:
+In plain English, this project is trying to answer:
+
+> "What was I looking at earlier, and can I find it again quickly?"
+
+## Privacy / Safety Model
 
 - This project is designed so it does **not** modify the screenshot files or write anything inside the screenshot folder tree.
 - All generated data goes under `~/Library/Application Support/ScreenMemoryRAG/`.
+- `OCR Only` mode keeps search local.
+- `Semantic` mode uses Gemini only for the parts that need model help, such as embeddings, time interpretation, and optional answer generation.
 
 ## What gets created on your Mac
 
@@ -29,7 +39,7 @@ Your screenshot source folder is treated as read-only input.
 
 ## Current Stack / Services Used
 
-This is the current working stack for the project.
+This is the current working stack.
 
 - **Python CLI/package**
   - The Python side handles indexing, OCR, search, Gemini calls, and local database updates.
@@ -48,11 +58,11 @@ This is the current working stack for the project.
   - Optional for larger backfills.
   - Lets you queue OCR chunks locally, submit them in batches, and sync finished embedding results later.
 
-This section is intentionally brief for now and can be expanded later with more architecture details, provider choices, and data-flow notes.
+This section is intentionally brief for now. It will likely grow later into a cleaner architecture overview once the project shape settles down.
 
 ## Current ScreenMemory Baseline Settings
 
-These are the current ScreenMemory settings visible in the General tab screenshot that this project is being used with right now.
+These are the current ScreenMemory settings visible in the General tab screenshot used with this project right now.
 
 - Screenshot interval: `30 seconds`
 - Compression: `Very (lower file size, lower quality)`
@@ -62,7 +72,7 @@ These are the current ScreenMemory settings visible in the General tab screensho
 - Always show dock icon: `On`
 - Icon-only buttons: `Off`
 
-Treat these as a current working baseline, not as final recommended settings for every setup.
+Treat these as a working baseline, not as final recommended settings for every setup.
 
 ## Before you run it
 
