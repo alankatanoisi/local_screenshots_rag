@@ -4,7 +4,7 @@ ScreenMemory RAG is a local-first screenshot search tool for macOS.
 
 It does three main jobs:
 
-1. It reads screenshots from `/Users/alanman/ScreenMemoryData/screenshots`.
+1. It reads screenshots from a configurable screenshot folder.
 2. It extracts text with OCR and stores search data in its own local database.
 3. It lets you search either with:
    - `OCR Only` mode, which stays fully local except for your own terminal/app usage
@@ -77,10 +77,10 @@ If you have never opened Terminal before:
 
 ## Setup
 
-In Terminal, paste these commands one at a time:
+In Terminal, first move into your own copy of the project folder, then paste these commands one at a time:
 
 ```bash
-cd "/Users/alanman/Documents/local_screenshots_rag"
+cd "/path/to/your/project"
 uv python install 3.12
 uv venv --python 3.12
 source .venv/bin/activate
@@ -100,10 +100,10 @@ What success looks like:
 
 ## Easiest daily app launch
 
-If setup is already done and you just want to run the app with the fewest moving parts, use this single copy-paste command in Terminal:
+If setup is already done and you just want to run the app with the fewest moving parts, use this pattern in Terminal:
 
 ```bash
-cd "/Users/alanman/Documents/local_screenshots_rag" && swift build -c release && open "/Users/alanman/Documents/local_screenshots_rag/.build/arm64-apple-macosx/release/ScreenMemoryMenuBar"
+cd "/path/to/your/project" && swift build -c release && open ".build/arm64-apple-macosx/release/ScreenMemoryMenuBar"
 ```
 
 Why this is the recommended daily launch:
@@ -123,7 +123,7 @@ What success looks like:
 To index only recent screenshots first:
 
 ```bash
-cd "/Users/alanman/Documents/local_screenshots_rag"
+cd "/path/to/your/project"
 source .venv/bin/activate
 PYTHONPATH=src python -m screenmemory index --recent-days 14
 ```
@@ -209,7 +209,7 @@ PYTHONPATH=src python -m screenmemory remove-launch-agent
 Use Terminal instead of Xcode for the lowest memory usage:
 
 ```bash
-cd "/Users/alanman/Documents/local_screenshots_rag" && swift build -c release && open "/Users/alanman/Documents/local_screenshots_rag/.build/arm64-apple-macosx/release/ScreenMemoryMenuBar"
+cd "/path/to/your/project" && swift build -c release && open ".build/arm64-apple-macosx/release/ScreenMemoryMenuBar"
 ```
 
 You should see a small icon appear in the macOS menu bar.
@@ -218,7 +218,7 @@ If the app says it cannot find the CLI:
 
 - Make sure you already ran the Python setup steps above.
 - Make sure `uv` is installed at `/opt/homebrew/bin/uv`.
-- Make sure this project is still located at `/Users/alanman/Documents/local_screenshots_rag`.
+- Make sure you are running the command from your own local project folder.
 
 ## Common failure modes
 
