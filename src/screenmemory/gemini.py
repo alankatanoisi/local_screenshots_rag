@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime
 
-import requests
+from google import genai
+from google.genai import types
 
 from screenmemory.config import ScreenMemoryConfig
 from screenmemory.models import AnswerCitation, QueryPlan, SearchResult
@@ -11,42 +13,56 @@ from screenmemory.models import AnswerCitation, QueryPlan, SearchResult
 
 class GeminiClient:
     def __init__(self, config: ScreenMemoryConfig) -> None:
-        # We talk to Gemini over HTTPS directly so we are not blocked on SDK-specific behavior.
         self.config = config
         self.api_key = config.gemini_api_key
-        self.base_url = "https://generativelanguage.googleapis.com/v1beta"
+        self._sdk_client = None
 
     @property
     def configured(self) -> bool:
-        return bool(self.api_key)
+        # If using Vertex AI, ADC could be used even without an explicit api_key.
+        # But for consistency, we rely on the same config or ADC presence logic.
+        return bool(self.api_key) or self.config.genai_use_vertexai
 
-    def _post(self, path: str, payload: dict) -> dict:
-        if not self.api_key:
-            raise RuntimeError(
-                "Gemini is not configured. Set GEMINI_API_KEY or GOOGLE_API_KEY first."
-            )
-
-        response = requests.post(
-            f"{self.base_url}/{path}",
-            params={"key": self.api_key},
-            json=payload,
-            timeout=60,
-        )
-        response.raise_for_status()
-        return response.json()
+    @property
+    def client(self):
+        if self._sdk_client is None:
+            if self.config.genai_use_vertexai:
+                self._sdk_client = genai.Client(
+                    vertexai=True,
+                    project=self.config.google_cloud_project,
+                    location=self.config.google_cloud_location,
+                )
+            else:
+                if not self.api_key:
+                    raise RuntimeError(
+                        "Gemini is not configured. Set GEMINI_API_KEY or GOOGLE_API_KEY first."
+                    )
+                self._sdk_client = genai.Client(api_key=self.api_key)
+        return self._sdk_client
 
     def embed_text(self, text: str, task_type: str) -> list[float]:
-        # We embed OCR chunks and user queries as text, not raw images, in this v1.
-        payload = {
-            "model": f"models/{self.config.gemini_embedding_model}",
-            "content": {"parts": [{"text": text}]},
-            "taskType": task_type,
-        }
-        data = self._post(
-            f"models/{self.config.gemini_embedding_model}:embedContent",
-            payload,
+        # gemini-embedding-2-preview does not use the task_type parameter.
+        # Instead, the task instructions are prepended to the text content.
+        if task_type == "RETRIEVAL_QUERY":
+            instruction_text = f"task: search result | query: {text}"
+        elif task_type == "RETRIEVAL_DOCUMENT":
+            instruction_text = f"title: none | text: {text}"
+        else:
+            instruction_text = text
+
+        response = self.client.models.embed_content(
+            model=self.config.gemini_embedding_model,
+            contents=[instruction_text],
+            config=types.EmbedContentConfig(output_dimensionality=768),
         )
-        return data["embedding"]["values"]
+
+        embedding_values = response.embeddings[0].values
+
+        # Normalize the embedding as required for gemini-embedding-2-preview with lower dimensions
+        norm = math.sqrt(sum(v * v for v in embedding_values))
+        if norm > 0:
+            return [v / norm for v in embedding_values]
+        return embedding_values
 
     def plan_query(self, raw_query: str, now: datetime) -> QueryPlan:
         # Gemini is only used here for the richer natural-language time parsing in semantic mode.
@@ -67,18 +83,16 @@ User query:
 {raw_query}
 """.strip()
 
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0,
-                "responseMimeType": "application/json",
-            },
-        }
-        data = self._post(
-            f"models/{self.config.gemini_generation_model}:generateContent",
-            payload,
+        response = self.client.models.generate_content(
+            model=self.config.gemini_generation_model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0,
+                response_mime_type="application/json",
+            ),
         )
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
+
+        text = response.text
         parsed = json.loads(text)
         return QueryPlan(
             mode="semantic",
@@ -130,18 +144,16 @@ Context:
 {joined_context}
 """.strip()
 
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0.2,
-                "responseMimeType": "application/json",
-            },
-        }
-        data = self._post(
-            f"models/{self.config.gemini_generation_model}:generateContent",
-            payload,
+        response = self.client.models.generate_content(
+            model=self.config.gemini_generation_model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.2,
+                response_mime_type="application/json",
+            ),
         )
-        parsed = json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
+
+        parsed = json.loads(response.text)
         answer = str(parsed.get("answer") or "").strip()
 
         citations: list[AnswerCitation] = []

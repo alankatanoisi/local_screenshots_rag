@@ -22,6 +22,9 @@ class ScreenMemoryConfig:
     gemini_api_key: str | None
     gemini_generation_model: str
     gemini_embedding_model: str
+    google_cloud_project: str | None
+    google_cloud_location: str | None
+    genai_use_vertexai: bool
     timezone_name: str
     thumbnail_size: int
     default_recent_days: int
@@ -98,7 +101,12 @@ def load_config() -> ScreenMemoryConfig:
         ),
         gemini_embedding_model=os.getenv(
             "SCREENMEMORY_GEMINI_EMBED_MODEL",
-            "gemini-embedding-001",
+            "gemini-embedding-2-preview",
+        ),
+        google_cloud_project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+        google_cloud_location=os.getenv("GOOGLE_CLOUD_LOCATION"),
+        genai_use_vertexai=(
+            os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "False").lower() == "true"
         ),
         timezone_name=os.getenv("TZ", "America/Los_Angeles"),
         thumbnail_size=int(os.getenv("SCREENMEMORY_THUMBNAIL_SIZE", "320")),
