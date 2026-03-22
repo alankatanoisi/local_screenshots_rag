@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import operator
 import re
 from collections import defaultdict
 from datetime import datetime
@@ -24,12 +25,14 @@ def _preview(text: str, max_chars: int = 220) -> str:
     return normalized[:max_chars] + ("..." if len(normalized) > max_chars else "")
 
 
-def _cosine_similarity(left: list[float], right: list[float]) -> float:
-    numerator = sum(a * b for a, b in zip(left, right))
-    left_norm = math.sqrt(sum(a * a for a in left))
-    right_norm = math.sqrt(sum(b * b for b in right))
+def _cosine_similarity(
+    left: list[float], right: list[float], left_norm: float | None = None
+) -> float:
+    left_norm = left_norm if left_norm is not None else math.hypot(*left)
+    right_norm = math.hypot(*right)
     if left_norm == 0 or right_norm == 0:
         return 0.0
+    numerator = sum(map(operator.mul, left, right))
     return numerator / (left_norm * right_norm)
 
 
@@ -168,6 +171,7 @@ def search(
                 start_epoch=plan.start_epoch,
                 end_epoch=plan.end_epoch,
             )
+            query_norm = math.hypot(*query_embedding)
             for row in fallback_rows:
                 embedding_blob = row["embedding"]
                 if embedding_blob is None:
@@ -175,6 +179,7 @@ def search(
                 score = _cosine_similarity(
                     query_embedding,
                     deserialize_embedding(embedding_blob),
+                    left_norm=query_norm,
                 )
                 bucket = grouped[int(row["screenshot_id"])]
                 bucket["file_path"] = row["file_path"]
