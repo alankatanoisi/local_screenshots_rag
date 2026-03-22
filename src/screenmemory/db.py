@@ -210,9 +210,18 @@ class Database:
                 self.vec_enabled = False
             return
 
-        self.conn.execute(
-            f"CREATE VIRTUAL TABLE chunk_vec USING vec0(embedding float[{dimensions}])"
-        )
+        try:
+            self.conn.execute(
+                f"CREATE VIRTUAL TABLE chunk_vec USING vec0(embedding float[{dimensions}])"
+            )
+        except sqlite3.OperationalError as e:
+            if "no such module: vec0" in str(e):
+                # Fallback for environments without sqlite-vec (e.g. tests)
+                self.conn.execute(
+                    "CREATE TABLE chunk_vec (rowid INTEGER PRIMARY KEY, embedding BLOB)"
+                )
+            else:
+                raise
         self.record_state("chunk_vec_dimensions", str(dimensions))
         self.conn.commit()
 
@@ -705,20 +714,13 @@ class Database:
         failed_count = 0
         dimensions: int | None = None
 
+        failed_updates = []
+        ready_updates = []
+        vec_inserts = []
+
         for chunk_id, embedding in zip(chunk_ids, embeddings):
             if embedding is None:
-                self.conn.execute(
-                    """
-                    UPDATE chunks
-                    SET embedding = NULL,
-                        embedding_model = ?,
-                        embedding_status = 'failed',
-                        embedding_batch_id = ?,
-                        embedding_updated_at = ?
-                    WHERE id = ?
-                    """,
-                    (embedding_model, batch_id, updated_at, chunk_id),
-                )
+                failed_updates.append((embedding_model, batch_id, updated_at, chunk_id))
                 failed_count += 1
                 continue
 
@@ -726,7 +728,26 @@ class Database:
                 dimensions = len(embedding)
 
             embedding_blob = serialize_embedding(embedding)
-            self.conn.execute(
+            ready_updates.append((embedding_blob, embedding_model, batch_id, updated_at, chunk_id))
+            vec_inserts.append((chunk_id, embedding_blob))
+            ready_count += 1
+
+        if failed_updates:
+            self.conn.executemany(
+                """
+                UPDATE chunks
+                SET embedding = NULL,
+                    embedding_model = ?,
+                    embedding_status = 'failed',
+                    embedding_batch_id = ?,
+                    embedding_updated_at = ?
+                WHERE id = ?
+                """,
+                failed_updates,
+            )
+
+        if ready_updates:
+            self.conn.executemany(
                 """
                 UPDATE chunks
                 SET embedding = ?,
@@ -736,30 +757,24 @@ class Database:
                     embedding_updated_at = ?
                 WHERE id = ?
                 """,
-                (embedding_blob, embedding_model, batch_id, updated_at, chunk_id),
+                ready_updates,
             )
-            ready_count += 1
 
         if dimensions:
             self.ensure_vector_table(dimensions)
 
         if self.vec_enabled and self.has_vector_table():
-            placeholders = ",".join("?" for _ in chunk_ids)
-            rows = self.conn.execute(
-                f"""
-                SELECT id, embedding, embedding_status
-                FROM chunks
-                WHERE id IN ({placeholders})
-                """,
-                chunk_ids,
-            ).fetchall()
-            for row in rows:
-                self.conn.execute("DELETE FROM chunk_vec WHERE rowid = ?", (int(row["id"]),))
-                if row["embedding"] is not None and row["embedding_status"] == "ready":
-                    self.conn.execute(
-                        "INSERT OR REPLACE INTO chunk_vec(rowid, embedding) VALUES (?, ?)",
-                        (int(row["id"]), row["embedding"]),
-                    )
+            # Bulk delete from chunk_vec first.
+            self.conn.executemany(
+                "DELETE FROM chunk_vec WHERE rowid = ?",
+                [(chunk_id,) for chunk_id in chunk_ids],
+            )
+            # Then bulk insert the ready ones.
+            if vec_inserts:
+                self.conn.executemany(
+                    "INSERT INTO chunk_vec(rowid, embedding) VALUES (?, ?)",
+                    vec_inserts,
+                )
 
         self.conn.commit()
         return {"ready": ready_count, "failed": failed_count}
